@@ -1,28 +1,34 @@
-import os
-import firebase_admin 
-from firebase_admin import credentials, auth
+from datetime import datetime, timedelta
+from typing import Optional
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from .config import settings
 
-private_key = os.getenv("FIREBASE_PRIVATE_KEY").replace("\\n", "\n")
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against a hash."""
+    return pwd_context.verify(plain_password, hashed_password)
 
-cred = credentials.Certificate({
-    "type": os.getenv("FIREBASE_TYPE"),
-    "project_id": os.getenv("FIREBASE_PROJECT_ID"),
-    "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
-    "private_key": private_key,
-    "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
-    "client_id": os.getenv("FIREBASE_CLIENT_ID"),
-    "auth_uri": os.getenv("FIREBASE_AUTH_URI"),
-    "token_uri": os.getenv("FIREBASE_TOKEN_URI"),
-    "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER_CERT_URL"),
-    "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT_URL"),
-    "universe_domain": os.getenv("FIREBASE_UNIVERSE_DOMAIN"),
-})
-firebase_admin.initialize_app(cred)
+def get_password_hash(password: str) -> str:
+    """Hash a password."""
+    return pwd_context.hash(password)
 
-def verify_firebase_token(id_token: str):
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    """Create a JWT access token."""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt
+
+def verify_token(token: str) -> dict:
+    """Verify a JWT token and return the payload."""
     try:
-        decoded_token = auth.verify_id_token(id_token)
-        return decoded_token  # contains uid, email, etc.
-    except Exception as e:
-        raise Exception("Invalid Firebase token") from e
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        return payload
+    except JWTError:
+        raise Exception("Invalid token")

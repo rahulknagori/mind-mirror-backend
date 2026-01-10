@@ -1,28 +1,31 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer
-from ..core.security import verify_firebase_token
-from ..crud.user import User
+from ..core.security import verify_token
+from ..crud.user import get_user_by_email
 from sqlalchemy.orm import Session
 from ..core.database import get_db
-from ..schemas.user import UserCreate
 
 bearer_scheme = HTTPBearer()
 
 def get_current_user(token: str = Depends(bearer_scheme), db: Session = Depends(get_db)):
     try:
-        decoded = verify_firebase_token(token.credentials)
-        firebase_uid = decoded["uid"]
-        email = decoded.get("email")
-
-        # Check if user exists in DB
-        db_user = User.get_user_by_uid(db, firebase_uid)
-        if not db_user:
-            new_user = UserCreate(firebase_uid=firebase_uid, email=email)
-            db_user = User.create_user(db, new_user)
-
-        return db_user
-    except:
+        payload = verify_token(token.credentials)
+        email: str = payload.get("sub")
+        if email is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication credentials",
+            )
+    except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired Firebase token",
+            detail="Invalid or expired token",
         )
+    
+    user = get_user_by_email(db, email=email)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+    return user

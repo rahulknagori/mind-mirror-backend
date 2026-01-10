@@ -14,17 +14,6 @@ dnspython==2.7.0
 ecdsa==0.19.1
 email_validator==2.2.0
 fastapi==0.116.1
-firebase_admin==7.1.0
-google-api-core==2.25.1
-google-auth==2.40.3
-google-cloud-core==2.4.3
-google-cloud-firestore==2.21.0
-google-cloud-storage==3.4.0
-google-crc32c==1.7.1
-google-resumable-media==2.7.2
-googleapis-common-protos==1.70.0
-grpcio==1.75.0
-grpcio-status==1.75.0
 h11==0.16.0
 h2==4.3.0
 hpack==4.1.0

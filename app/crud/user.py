@@ -1,14 +1,16 @@
 from sqlalchemy.orm import Session
 from ..models.user import User
 from ..schemas.user import UserCreate
+from ..core.security import get_password_hash
 
-def get_user_by_uid(db: Session, firebase_uid: str):
-    return db.query(User).filter(User.firebase_uid == firebase_uid).first()
+def get_user_by_email(db: Session, email: str):
+    return db.query(User).filter(User.email == email).first()
 
 def create_user(db: Session, user_data: UserCreate):
+    hashed_password = get_password_hash(user_data.password)
     db_user = User(
-        firebase_uid=user_data.firebase_uid,
         email=user_data.email,
+        hashed_password=hashed_password,
         full_name=user_data.full_name
     )
 
