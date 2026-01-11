@@ -91,10 +91,8 @@ def get_medicines(
     Returns a standardized success response with the list of medicines.
     """
     try:
-        # Query medicines for the current user
         db_medicines = db.query(Medicine).filter(Medicine.user_id == current_user.id).all()
         
-        # Convert to response models
         try:
             medicines_response = [
                 schemas.medicine.MedicineResponse.model_validate(m) 
@@ -112,17 +110,14 @@ def get_medicines(
             request=request
         )
     except SQLAlchemyError as e:
-        # Database-related errors
         db.rollback()
         logger.error(f"Database error while fetching medicines: {str(e)}", exc_info=True)
         raise InternalServerError(
             message="Failed to retrieve medicines due to a database error"
         )
     except InternalServerError:
-        # Re-raise InternalServerError as-is
         raise
     except Exception as e:
-        # Unexpected errors
         logger.error(f"Unexpected error while fetching medicines: {str(e)}", exc_info=True)
         raise InternalServerError(
             message="An unexpected error occurred while retrieving medicines"
