@@ -6,7 +6,7 @@ from ....core.database import get_db
 from ....models.medicine import Medicine
 from ....models.user import User
 from datetime import datetime, date
-
+from typing import List
 router = APIRouter()
 
 @router.post("/", response_model=schemas.medicine.MedicineResponse)
@@ -57,3 +57,16 @@ def create_medicine(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to create medicine: {str(e)}"
         )    
+
+@router.get("/", response_model=List[schemas.medicine.MedicineResponse]) 
+def get_medicines(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+ ):
+    try:
+        db_medicines = db.query(Medicine).filter(Medicine.user_id==current_user.id).all()
+        return db_medicines
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get medicines: {str(e)}"        )       
