@@ -6,19 +6,19 @@ from ....core.security import verify_password, create_access_token
 from ....core.response import success_response
 from ....core.exceptions import UnauthorizedError, ConflictError
 from ....crud.user import create_user, get_user_by_email
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
 @router.post("/login", response_model=schemas.response.SuccessResponse[schemas.user.Token])
-def login(
+async def login(
     user_credentials: schemas.user.UserLogin,
     request: Request,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Login endpoint - returns JWT token"""
     # Get user by email
-    db_user = get_user_by_email(db, email=user_credentials.email)
+    db_user = await get_user_by_email(db, email=user_credentials.email)
     
     # Check if user exists
     if not db_user:
@@ -43,7 +43,7 @@ def login(
     )
 
 @router.get("/me", response_model=schemas.response.SuccessResponse[schemas.user.UserOut])
-def read_current_user(
+async def read_current_user(
     request: Request,
     current_user = Depends(get_current_user)
 ):
@@ -55,17 +55,17 @@ def read_current_user(
     )
 
 @router.post("/", response_model=schemas.response.SuccessResponse[schemas.user.UserOut])
-def create_user_endpoint(
+async def create_user_endpoint(
     user: schemas.user.UserCreate,
     request: Request,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     # Check if user already exists
-    db_user = get_user_by_email(db, email=user.email)
+    db_user = await get_user_by_email(db, email=user.email)
     if db_user:
         raise ConflictError("Email already registered")
     
-    created_user = create_user(db, user)
+    created_user = await create_user(db, user)
     user_out = schemas.user.UserOut.model_validate(created_user)
     return success_response(
         data=user_out,

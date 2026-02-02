@@ -8,7 +8,6 @@ from ..schemas.response import ErrorInfo
 
 
 class BaseAPIException(HTTPException):
-    """Base exception for API errors"""
     def __init__(
         self,
         status_code: int,
@@ -22,7 +21,6 @@ class BaseAPIException(HTTPException):
 
 
 class ValidationError(BaseAPIException):
-    """Validation error exception"""
     def __init__(
         self,
         message: str = "Validation failed",

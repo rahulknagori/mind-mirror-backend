@@ -15,9 +15,7 @@ from ..schemas.response import (
 
 T = TypeVar('T')
 
-# Standard Error Codes
 class ErrorCode:
-    """Standard error codes for API responses"""
     VALIDATION_ERROR = "VALIDATION_ERROR"
     NOT_FOUND = "NOT_FOUND"
     UNAUTHORIZED = "UNAUTHORIZED"
@@ -29,12 +27,10 @@ class ErrorCode:
 
 
 def get_request_id(request: Request) -> Optional[str]:
-    """Extract request ID from request state"""
     return getattr(request.state, "request_id", None)
 
 
 def create_meta(request: Optional[Request] = None) -> MetaInfo:
-    """Create metadata for response"""
     request_id = get_request_id(request) if request else None
     return MetaInfo(
         timestamp=datetime.utcnow(),
@@ -47,7 +43,6 @@ def success_response(
     message: Optional[str] = "Operation completed successfully",
     request: Optional[Request] = None
 ) -> SuccessResponse[T]:
-    """Create a success response"""
     return SuccessResponse(
         success=True,
         message=message,
@@ -62,7 +57,6 @@ def error_response(
     details: Optional[List[ErrorDetail]] = None,
     request: Optional[Request] = None
 ) -> ErrorResponse:
-    """Create an error response"""
     error_info = ErrorInfo(
         code=code,
         message=message,
@@ -83,7 +77,6 @@ def paginated_response(
     message: Optional[str] = "Data retrieved successfully",
     request: Optional[Request] = None
 ) -> PaginatedResponse[T]:
-    """Create a paginated response"""
     total_pages = (total_items + page_size - 1) // page_size if page_size > 0 else 0
     
     pagination = PaginationMeta(

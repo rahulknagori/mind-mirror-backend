@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import select
 from pydantic import ValidationError as PydanticValidationError
 from .... import schemas
 from ....api.deps import get_current_user
@@ -17,11 +18,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 @router.post("/")
-def create_medicine(
+async def create_medicine(
     medicine: schemas.medicine.MedicineCreate,
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Create a new medicine for the current user.
@@ -56,8 +57,8 @@ def create_medicine(
         )
 
         db.add(db_medicine)
-        db.commit()
-        db.refresh(db_medicine)
+        await db.commit()
+        await db.refresh(db_medicine)
         
         medicine_response = schemas.medicine.MedicineResponse.model_validate(db_medicine)
         return success_response(
@@ -67,31 +68,34 @@ def create_medicine(
         )
     except SQLAlchemyError as e:
         # Database-related errors
-        db.rollback()
+        await db.rollback()
         logger.error(f"Database error while creating medicine: {str(e)}", exc_info=True)
         raise InternalServerError(
             message="Failed to create medicine due to a database error"
         )
     except Exception as e:
         # Unexpected errors
-        db.rollback()
+        await db.rollback()
         logger.error(f"Unexpected error while creating medicine: {str(e)}", exc_info=True)
         raise InternalServerError(
             message="An unexpected error occurred while creating medicine"
         )    
 
 @router.get("/")
-def get_medicines(
+async def get_medicines(
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """
     Get all medicines for the current user.
     Returns a standardized success response with the list of medicines.
     """
     try:
-        db_medicines = db.query(Medicine).filter(Medicine.user_id == current_user.id).all()
+        result = await db.execute(
+            select(Medicine).where(Medicine.user_id == current_user.id)
+        )
+        db_medicines = result.scalars().all()
         
         try:
             medicines_response = [
@@ -110,7 +114,7 @@ def get_medicines(
             request=request
         )
     except SQLAlchemyError as e:
-        db.rollback()
+        await db.rollback()
         logger.error(f"Database error while fetching medicines: {str(e)}", exc_info=True)
         raise InternalServerError(
             message="Failed to retrieve medicines due to a database error"

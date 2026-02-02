@@ -17,7 +17,7 @@ class UserOut(UserBase):
     id: UUID
     full_name: Optional[str]
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class Token(BaseModel):
     access_token: str

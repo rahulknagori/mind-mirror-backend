@@ -3,7 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from uuid import uuid4
 from .core import database
-from .models import user
+from .models import user  # Keep for backward compatibility if needed
+# Import all models to ensure SQLAlchemy can resolve relationships
+from .models import User, Medicine, Supplier, Customer, Bill, BillItem
 from .api.v1 import api
 from .core.exceptions import (
     BaseAPIException,
@@ -13,11 +15,12 @@ from .core.exceptions import (
 )
 from fastapi.exceptions import HTTPException
 
-user.Base.metadata.create_all(bind=database.engine) 
+# Note: For async, table creation should be done via Alembic migrations
+# This line is kept for backward compatibility but won't work with async engine
+# Remove this line and use migrations instead: alembic upgrade head 
 
 app = FastAPI(title="Scalable Fast API")
 
-# Request ID Middleware
 class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request_id = str(uuid4())
@@ -35,7 +38,6 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-# Add exception handlers
 app.add_exception_handler(BaseAPIException, api_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(Exception, general_exception_handler)
@@ -43,5 +45,5 @@ app.add_exception_handler(Exception, general_exception_handler)
 app.include_router(api.api_router, prefix='/api/v1')
 
 @app.get("/")
-def root():
+async def root():
     return {"message": "API is running"}

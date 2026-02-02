@@ -5,7 +5,8 @@ from ....core.exceptions import ValidationError, NotFoundError, ErrorDetail
 from ....models.supplier import Supplier
 from ....models.user import User
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from datetime import date
 from ....api.deps import get_current_user
 from typing import List
@@ -13,11 +14,11 @@ from uuid import UUID
 router = APIRouter()
 
 @router.post("/", response_model=schemas.response.SuccessResponse[schemas.supplier.SupplierResponse])
-def create_supplier(
+async def create_supplier(
     supplier: schemas.supplier.SupplierCreate,
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     # Validation checks
     errors = []
@@ -52,8 +53,8 @@ def create_supplier(
         )
 
         db.add(db_supplier)
-        db.commit()
-        db.refresh(db_supplier)
+        await db.commit()
+        await db.refresh(db_supplier)
         
         supplier_response = schemas.supplier.SupplierResponse.model_validate(db_supplier)
         return success_response(
@@ -62,19 +63,23 @@ def create_supplier(
             request=request
         )
     except Exception as e:
+        await db.rollback()
         raise ValidationError(
             message=f"Failed to create supplier: {str(e)}"
         )        
 
 
 @router.get("/", response_model=schemas.response.SuccessResponse[List[schemas.supplier.SupplierResponse]])
-def get_supplier(
+async def get_supplier(
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     try: 
-        db_suppliers = db.query(Supplier).filter(Supplier.user_id == current_user.id).all()
+        result = await db.execute(
+            select(Supplier).where(Supplier.user_id == current_user.id)
+        )
+        db_suppliers = result.scalars().all()
         suppliers_response = [schemas.supplier.SupplierResponse.model_validate(s) for s in db_suppliers]
         return success_response(
             data=suppliers_response,
@@ -87,17 +92,20 @@ def get_supplier(
         )      
 
 @router.get("/{id}", response_model=schemas.response.SuccessResponse[schemas.supplier.SupplierResponse])
-def get_supplier_by_id(
+async def get_supplier_by_id(
     id: UUID,
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     try:
-        db_supplier = db.query(Supplier).filter(
-            Supplier.id == id,
-            Supplier.user_id == current_user.id
-        ).first()
+        result = await db.execute(
+            select(Supplier).where(
+                Supplier.id == id,
+                Supplier.user_id == current_user.id
+            )
+        )
+        db_supplier = result.scalar_one_or_none()
         
         if not db_supplier:
             raise NotFoundError(
