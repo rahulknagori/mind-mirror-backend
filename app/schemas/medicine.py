@@ -18,6 +18,17 @@ class MedicineBase(BaseModel):
 class MedicineCreate(MedicineBase):
     pass
 
+class MedicineUpdate(BaseModel):
+    name: Optional[str] = None
+    type: Optional[str] = None
+    brand_name: Optional[str] = None
+    composition: Optional[str] = None
+    batch_number: Optional[str] = None
+    expiry_date: Optional[date] = None
+    mrp: Optional[Decimal] = None
+    selling_price: Optional[Decimal] = None
+    stock_quantity: Optional[int] = None
+
 class MedicineResponse(MedicineBase):
     id: UUID
     user_id: UUID

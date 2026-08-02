@@ -5,5 +5,7 @@ from .supplier import Supplier
 from .customer import Customer
 from .bill import Bill
 from .bill_item import BillItem
+from .purchase import Purchase
+from .purchase_item import PurchaseItem
 
-__all__ = ["User", "Medicine", "Supplier", "Customer", "Bill", "BillItem"]
+__all__ = ["User", "Medicine", "Supplier", "Customer", "Bill", "BillItem", "Purchase", "PurchaseItem"]

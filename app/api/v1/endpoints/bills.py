@@ -1,9 +1,10 @@
 
 
 import logging
-from sqlalchemy import select
+from typing import Optional
+from sqlalchemy import func, or_, select
 from uuid import UUID
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,8 +12,9 @@ from app import schemas
 from app.api.deps import get_current_user
 from pydantic import ValidationError as PydanticValidationError
 from app.core.database import get_db
-from app.core.exceptions import InternalServerError, NotFoundError
-from app.core.response import success_response
+from app.core.enums import BillStatus
+from app.core.exceptions import ErrorDetail, InternalServerError, NotFoundError, ValidationError
+from app.core.response import paginated_response, success_response
 from app.models.bill import Bill
 from app.models.bill_item import BillItem
 from app.models.user import User
@@ -113,14 +115,38 @@ async def createBill(
         )    
 
 @router.get("/")
-async def getBills(request: Request, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    try: 
-        result = await db.execute(select(Bill).where(Bill.user_id == current_user.id))
+async def getBills(
+    request: Request,
+    search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        conditions = [Bill.user_id == current_user.id]
+        if search:
+            like = f"%{search}%"
+            conditions.append(or_(Bill.bill_number.ilike(like), Bill.docter_name.ilike(like), Bill.notes.ilike(like)))
+
+        count_result = await db.execute(select(func.count()).select_from(Bill).where(*conditions))
+        total_items = count_result.scalar_one()
+
+        result = await db.execute(
+            select(Bill)
+            .where(*conditions)
+            .order_by(Bill.bill_date.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
         db_bills = result.scalars().all()
         bills_response = [schemas.bill.BillResponse.model_validate(b) for b in db_bills]
 
-        return success_response(
+        return paginated_response(
             data=bills_response,
+            page=page,
+            page_size=page_size,
+            total_items=total_items,
             message="Bills retrieved successfully",
             request=request
         )
@@ -168,10 +194,99 @@ async def getBill(id: UUID, request: Request, current_user: User = Depends(get_c
         raise InternalServerError(
             message="Failed to process bill data"
         )
-    except InternalServerError:
+    except (InternalServerError, NotFoundError):
         raise
     except Exception as e:
         logger.error(f"Unexpected error while fetching bill: {str(e)}", exc_info=True)
         raise InternalServerError(
             message="An unexpected error occurred while retrieving bill"
+        )
+
+
+@router.put("/{id}")
+async def updateBill(
+    id: UUID,
+    bill_update: schemas.bill.BillUpdate,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        result = await db.execute(select(Bill).where(Bill.id == id, Bill.user_id == current_user.id))
+        db_bill = result.scalar_one_or_none()
+        if not db_bill:
+            raise NotFoundError(resource="Bill", resource_id=str(id))
+
+        update_data = bill_update.model_dump(exclude_unset=True)
+
+        if "status" in update_data and update_data["status"] not in [s.value for s in BillStatus]:
+            raise ValidationError(
+                message="Validation failed",
+                details=[ErrorDetail(field="status", message=f"Status must be one of: {', '.join(s.value for s in BillStatus)}")]
+            )
+
+        for field, value in update_data.items():
+            setattr(db_bill, field, value)
+
+        await db.commit()
+        await db.refresh(db_bill)
+
+        bill_response = schemas.bill.BillResponse.model_validate(db_bill)
+        return success_response(
+            data=bill_response,
+            message="Bill updated successfully",
+            request=request
+        )
+    except (NotFoundError, ValidationError):
+        await db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        await db.rollback()
+        logger.error(f"Database error while updating bill: {str(e)}", exc_info=True)
+        raise InternalServerError(
+            message="Failed to update bill due to a database error"
+        )
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Unexpected error while updating bill: {str(e)}", exc_info=True)
+        raise InternalServerError(
+            message="An unexpected error occurred while updating bill"
+        )
+
+
+@router.delete("/{id}")
+async def deleteBill(
+    id: UUID,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    try:
+        result = await db.execute(select(Bill).where(Bill.id == id, Bill.user_id == current_user.id))
+        db_bill = result.scalar_one_or_none()
+        if not db_bill:
+            raise NotFoundError(resource="Bill", resource_id=str(id))
+
+        await db.delete(db_bill)
+        await db.commit()
+
+        return success_response(
+            data=None,
+            message="Bill deleted successfully",
+            request=request
+        )
+    except NotFoundError:
+        await db.rollback()
+        raise
+    except SQLAlchemyError as e:
+        await db.rollback()
+        logger.error(f"Database error while deleting bill: {str(e)}", exc_info=True)
+        raise InternalServerError(
+            message="Failed to delete bill due to a database error"
+        )
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Unexpected error while deleting bill: {str(e)}", exc_info=True)
+        raise InternalServerError(
+            message="An unexpected error occurred while deleting bill"
         )

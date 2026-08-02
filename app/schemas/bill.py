@@ -36,6 +36,15 @@ class BillCreate(BaseModel):
     bill_items: List[BillItemCreate]  # Nested bill items
     # sub_total, discount_amount, discount_percentage, tax_amount, total_amount are calculated by backend
 
+class BillUpdate(BaseModel):
+    """Limited update: business fields only. Items and totals are immutable after creation."""
+    payment_method: Optional[str] = None
+    paid_amount: Optional[Decimal] = None
+    balance_amount: Optional[Decimal] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+    docter_name: Optional[str] = None
+
 class BillResponse(BillBase):
     id: UUID
     user_id: UUID

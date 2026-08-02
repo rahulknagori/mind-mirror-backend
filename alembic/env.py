@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.core.config import settings
 from app.core.database import Base
 # Import all models so Alembic can detect them for autogenerate
-from app.models import User, Medicine, Supplier, Customer, Bill, BillItem
+from app.models import User, Medicine, Supplier, Customer, Bill, BillItem, Purchase, PurchaseItem
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
