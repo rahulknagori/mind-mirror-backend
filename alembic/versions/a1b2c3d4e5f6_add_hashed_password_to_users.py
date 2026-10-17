@@ -1,7 +1,7 @@
 """add hashed_password to users
 
 Revision ID: a1b2c3d4e5f6
-Revises: 75648c0386f8
+Revises: 0a1b2c3d4e5f
 Create Date: 2025-12-20 15:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = 'a1b2c3d4e5f6'
-down_revision: Union[str, None] = '75648c0386f8'
+down_revision: Union[str, None] = '0a1b2c3d4e5f'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
