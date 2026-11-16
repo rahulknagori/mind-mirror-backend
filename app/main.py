@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from uuid import uuid4
 from .core import database
+from .core.config import settings
+from .core.auth_cookies import CSRF_HEADER_NAME
+from .core.csrf import CSRFMiddleware
 from .models import user  # Keep for backward compatibility if needed
 # Import all models to ensure SQLAlchemy can resolve relationships
 from .models import User, Medicine, Supplier, Customer, Bill, BillItem
@@ -28,14 +31,17 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         return response
 
-# Add middleware - order matters: RequestIDMiddleware should be first
+# Middleware: the last one added runs first. CORS must be outermost so that even
+# error responses (e.g. CSRF rejections) carry CORS headers.
+app.add_middleware(CSRFMiddleware)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    # Cookies are sent cross-origin, so only our own frontend(s) may be allowed.
+    allow_origins=settings.FRONTEND_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", CSRF_HEADER_NAME],
 )
 
 app.add_exception_handler(BaseAPIException, api_exception_handler)

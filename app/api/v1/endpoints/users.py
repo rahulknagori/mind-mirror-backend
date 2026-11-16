@@ -10,13 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 router = APIRouter()
 
-@router.post("/login", response_model=schemas.response.SuccessResponse[schemas.user.Token])
+@router.post("/login", response_model=schemas.response.SuccessResponse[schemas.user.Token], deprecated=True)
 async def login(
     user_credentials: schemas.user.UserLogin,
     request: Request,
     db: AsyncSession = Depends(get_db)
 ):
-    """Login endpoint - returns JWT token"""
+    """Deprecated: returns a Bearer JWT in the body. Use POST /auth/login (cookie-based).
+    Kept for Swagger UI and clients that haven't moved to cookies yet."""
     # Get user by email
     db_user = await get_user_by_email(db, email=user_credentials.email)
     
@@ -42,7 +43,7 @@ async def login(
         request=request
     )
 
-@router.get("/me", response_model=schemas.response.SuccessResponse[schemas.user.UserOut])
+@router.get("/me", response_model=schemas.response.SuccessResponse[schemas.user.UserOut], deprecated=True)
 async def read_current_user(
     request: Request,
     current_user = Depends(get_current_user)
